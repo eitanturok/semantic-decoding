@@ -28,27 +28,24 @@ if __name__ == "__main__":
 
     # load language similarity metrics
     metrics = {}
-    # if "WER" in args.metrics: metrics["WER"] = WER(use_score = True)
+    if "WER" in args.metrics: metrics["WER"] = WER(use_score = True)
     if "BLEU" in args.metrics: metrics["BLEU"] = BLEU(n = 1)
-    # if "METEOR" in args.metrics: metrics["METEOR"] = METEOR()
-    # if "BERT" in args.metrics: metrics["BERT"] = BERTSCORE(
-    #     idf_sents = np.load(os.path.join(config.DATA_TEST_DIR, "idf_segments.npy")),
-    #     rescale = False,
-    #     score = "recall",
-    #     )
+    if "METEOR" in args.metrics: metrics["METEOR"] = METEOR()
+    if "BERT" in args.metrics: metrics["BERT"] = BERTSCORE(
+        idf_sents = np.load(os.path.join(config.DATA_TEST_DIR, "idf_segments.npy")),
+        rescale = False,
+        score = "recall",
+        )
 
     # load prediction transcript
-    pred_path = os.path.join(config.RESULT_DIR, args.subject, args.experiment, args.task + "_39.npz")
+    pred_path = os.path.join(config.RESULT_DIR, args.subject, args.experiment, args.task + ".npz")
     pred_data = np.load(pred_path)
     pred_words, pred_times = pred_data["words"], pred_data["times"]
-    ic(pred_words, pred_times)
 
     # generate null sequences
     if args.experiment in ["imagined_speech"]: gpt_checkpoint = "imagined"
     else: gpt_checkpoint = "perceived"
-
-    if args.null:
-        null_word_list = generate_null(pred_times, gpt_checkpoint, args.null)
+    null_word_list = generate_null(pred_times, gpt_checkpoint, args.null)
 
     window_scores, window_zscores = {}, {}
     story_scores, story_zscores = {}, {}
@@ -61,29 +58,24 @@ if __name__ == "__main__":
 
         # segment prediction and reference words into windows
         window_cutoffs = windows(*eval_segments[args.task], config.WINDOW)
-        ic(window_cutoffs)
         ref_windows = segment_data(ref_words, ref_times, window_cutoffs)
         pred_windows = segment_data(pred_words, pred_times, window_cutoffs)
-        ic(ref_windows, pred_windows)
-        if args.null:
-            null_window_list = [segment_data(null_words, pred_times, window_cutoffs) for null_words in null_word_list]
+        null_window_list = [segment_data(null_words, pred_times, window_cutoffs) for null_words in null_word_list]
 
         for mname, metric in metrics.items():
 
             # get null score for each window and the entire story
-            if args.null:
-                window_null_scores = np.array([metric.score(ref = ref_windows, pred = null_windows)
+            window_null_scores = np.array([metric.score(ref = ref_windows, pred = null_windows)
                                             for null_windows in null_window_list])
-                story_null_scores = window_null_scores.mean(1)
+            story_null_scores = window_null_scores.mean(1)
 
             # get raw score for each window and the entire story
             story_scores[(reference, mname)] = metric.score(ref = ref_words, pred = pred_words)
             window_scores[(reference, mname)] = metric.score(ref = ref_windows, pred = pred_windows)
             # get normalized score for each window and the entire story
-            if args.null:
-                window_zscores[(reference, mname)] = (window_scores[(reference, mname)]
+            window_zscores[(reference, mname)] = (window_scores[(reference, mname)]
                                                     - window_null_scores.mean(0)) / window_null_scores.std(0)
-                story_zscores[(reference, mname)] = (story_scores[(reference, mname)].mean()
+            story_zscores[(reference, mname)] = (story_scores[(reference, mname)].mean()
                                                     - story_null_scores.mean()) / story_null_scores.std()
 
     save_location = os.path.join(config.REPO_DIR, "scores", args.subject, args.experiment)
