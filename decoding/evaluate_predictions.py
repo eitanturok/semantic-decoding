@@ -49,12 +49,11 @@ if __name__ == "__main__":
 
     window_scores, window_zscores = {}, {}
     story_scores, story_zscores = {}, {}
-    for reference in tqdm(args.references):
+    for reference in args.references:
 
         # load reference transcript
         ref_data = load_transcript(args.experiment, reference)
-        ref_words, ref_times = ref_data["words"], ref_data["times"] # load all samples
-        ref_words, ref_times = ref_words[:len(pred_words)], ref_times[:len(pred_times)] # `references` should have same length as `predictions`
+        ref_words, ref_times = ref_data["words"], ref_data["times"]
 
         # segment prediction and reference words into windows
         window_cutoffs = windows(*eval_segments[args.task], config.WINDOW)
@@ -66,17 +65,18 @@ if __name__ == "__main__":
 
             # get null score for each window and the entire story
             window_null_scores = np.array([metric.score(ref = ref_windows, pred = null_windows)
-                                            for null_windows in null_window_list])
+                                           for null_windows in null_window_list])
             story_null_scores = window_null_scores.mean(1)
 
-            # get raw score for each window and the entire story
-            story_scores[(reference, mname)] = metric.score(ref = ref_words, pred = pred_words)
+            # get raw score and normalized score for each window
             window_scores[(reference, mname)] = metric.score(ref = ref_windows, pred = pred_windows)
-            # get normalized score for each window and the entire story
             window_zscores[(reference, mname)] = (window_scores[(reference, mname)]
-                                                    - window_null_scores.mean(0)) / window_null_scores.std(0)
+                                                  - window_null_scores.mean(0)) / window_null_scores.std(0)
+
+            # get raw score and normalized score for the entire story
+            story_scores[(reference, mname)] = metric.score(ref = ref_windows, pred = pred_windows)
             story_zscores[(reference, mname)] = (story_scores[(reference, mname)].mean()
-                                                    - story_null_scores.mean()) / story_null_scores.std()
+                                                 - story_null_scores.mean()) / story_null_scores.std()
 
     save_location = os.path.join(config.REPO_DIR, "scores", args.subject, args.experiment)
     os.makedirs(save_location, exist_ok = True)
