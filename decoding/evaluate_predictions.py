@@ -57,7 +57,6 @@ if __name__ == "__main__":
         # load reference transcript
         ref_data = load_transcript(args.experiment, reference)
         ref_words, ref_times = ref_data["words"], ref_data["times"] # load all samples
-        ic(ref_words, ref_times)
         ref_words, ref_times = ref_words[:len(pred_words)], ref_times[:len(pred_times)] # `references` should have same length as `predictions`
 
         # segment prediction and reference words into windows

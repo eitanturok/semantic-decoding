@@ -22,7 +22,6 @@ if __name__ == "__main__":
     parser.add_argument("--subject", type = str, required = True)
     parser.add_argument("--experiment", type = str, required = True)
     parser.add_argument("--task", type = str, required = True)
-    parser.add_argument('--checkpoint_freq', type=int, default='10')
     args = parser.parse_args()
 
     # determine GPT checkpoint based on experiment
@@ -87,9 +86,5 @@ if __name__ == "__main__":
             decoder.add_extensions(local_extensions, likelihoods, nextensions)
         decoder.extend(verbose = False)
 
-        # Save every iteration; maybe adjust word_times while saving
-        if sample_index % args.checkpoint_freq == 0:
-            if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times += 10
-            decoder.save(os.path.join(save_location, args.task))
-            if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times -= 10
-
+    if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times += 10
+    decoder.save(os.path.join(save_location, args.task))

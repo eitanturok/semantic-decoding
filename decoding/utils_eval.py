@@ -90,8 +90,7 @@ BLEU (https://aclanthology.org/P02-1040.pdf)
 """
 class BLEU(object):
     def __init__(self, n = 4):
-        # self.metric = evaluate.load("bleu", keep_in_memory=True)
-        self.metric = evaluate.load("bleu")
+        self.metric = evaluate.load("bleu", keep_in_memory=True)
         self.n = n
 
     def score(self, ref, pred):
@@ -106,8 +105,7 @@ METEOR (https://aclanthology.org/W05-0909.pdf)
 """
 class METEOR(object):
     def __init__(self):
-        # self.metric = evaluate.load("meteor", keep_in_memory=True)
-        self.metric = evaluate.load("meteor")
+        self.metric = evaluate.load("meteor", keep_in_memory=True)
 
     def score(self, ref, pred):
         results = []
