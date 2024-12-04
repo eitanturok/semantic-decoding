@@ -2,11 +2,11 @@ import os
 import numpy as np
 
 # paths
-
-REPO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATA_LM_DIR = os.path.join(REPO_DIR, "data_lm")
-DATA_TRAIN_DIR = os.path.join(REPO_DIR, "data_train")
-DATA_TEST_DIR = os.path.join(REPO_DIR, "data_test")
+# REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_DIR = '/home/ethantu/workspace/brain2text'
+DATA_LM_DIR = os.path.join(REPO_DIR, "data/data_lm")
+DATA_TRAIN_DIR = os.path.join(REPO_DIR, "data/data_train")
+DATA_TEST_DIR = os.path.join(REPO_DIR, "data/data_test")
 MODEL_DIR = os.path.join(REPO_DIR, "models")
 RESULT_DIR = os.path.join(REPO_DIR, "results")
 SCORE_DIR = os.path.join(REPO_DIR, "scores")

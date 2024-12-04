@@ -7,8 +7,8 @@ from GPT import GPT
 from Decoder import Decoder, Hypothesis
 from LanguageModel import LanguageModel
 
+import evaluate
 from jiwer import wer
-from datasets import load_metric
 from bert_score import BERTScorer
 
 BAD_WORDS_PERCEIVED_SPEECH = frozenset(["sentence_start", "sentence_end", "br", "lg", "ls", "ns", "sp"])
@@ -20,7 +20,7 @@ def load_transcript(experiment, task):
     else: skip_words = BAD_WORDS_OTHER_TASKS
     grid_path = os.path.join(config.DATA_TEST_DIR, "test_stimulus", experiment, task.split("_")[0] + ".TextGrid")
     transcript_data = {}
-    with open(grid_path) as f: 
+    with open(grid_path) as f:
         grid = TextGrid(f.read())
         if experiment == "perceived_speech": transcript = grid.tiers[1].make_simple_transcript()
         else: transcript = grid.tiers[0].make_simple_transcript()
@@ -41,7 +41,7 @@ def segment_data(data, times, cutoffs):
 
 """generate null sequences with same times as predicted sequence"""
 def generate_null(pred_times, gpt_checkpoint, n):
-    
+
     # load language model
     with open(os.path.join(config.DATA_LM_DIR, gpt_checkpoint, "vocab.json"), "r") as f:
         gpt_vocab = json.load(f)
@@ -49,7 +49,7 @@ def generate_null(pred_times, gpt_checkpoint, n):
         decoder_vocab = json.load(f)
     gpt = GPT(path = os.path.join(config.DATA_LM_DIR, gpt_checkpoint, "model"), vocab = gpt_vocab, device = config.GPT_DEVICE)
     lm = LanguageModel(gpt, decoder_vocab, nuc_mass = config.LM_MASS, nuc_ratio = config.LM_RATIO)
-    
+
     # generate null sequences
     null_words = []
     for _count in range(n):
@@ -62,7 +62,7 @@ def generate_null(pred_times, gpt_checkpoint, n):
                 if len(nuc) < 1: continue
                 extend_words = [hyp.words + [x] for x in nuc]
                 likelihoods = np.random.random(len(nuc))
-                local_extensions = [Hypothesis(parent = hyp, extension = x) 
+                local_extensions = [Hypothesis(parent = hyp, extension = x)
                                     for x in zip(nuc, logprobs, [np.zeros(1) for _ in nuc])]
                 decoder.add_extensions(local_extensions, likelihoods, nextensions)
             decoder.extend(verbose = False)
@@ -75,7 +75,7 @@ WER
 class WER(object):
     def __init__(self, use_score = True):
         self.use_score = use_score
-    
+
     def score(self, ref, pred):
         scores = []
         for ref_seg, pred_seg in zip(ref, pred):
@@ -84,28 +84,30 @@ class WER(object):
             if self.use_score: scores.append(1 - error)
             else: use_score.append(error)
         return np.array(scores)
-    
+
 """
 BLEU (https://aclanthology.org/P02-1040.pdf)
 """
 class BLEU(object):
     def __init__(self, n = 4):
-        self.metric = load_metric("bleu", keep_in_memory=True)
+        # self.metric = evaluate.load("bleu", keep_in_memory=True)
+        self.metric = evaluate.load("bleu")
         self.n = n
-        
+
     def score(self, ref, pred):
         results = []
         for r, p in zip(ref, pred):
             self.metric.add_batch(predictions=[p], references=[[r]])
             results.append(self.metric.compute(max_order = self.n)["bleu"])
         return np.array(results)
-    
+
 """
 METEOR (https://aclanthology.org/W05-0909.pdf)
 """
 class METEOR(object):
     def __init__(self):
-        self.metric = load_metric("meteor", keep_in_memory=True)
+        # self.metric = evaluate.load("meteor", keep_in_memory=True)
+        self.metric = evaluate.load("meteor")
 
     def score(self, ref, pred):
         results = []
@@ -115,7 +117,7 @@ class METEOR(object):
             self.metric.add_batch(predictions=[p], references=[r])
             results.append(self.metric.compute()["meteor"])
         return np.array(results)
-        
+
 """
 BERTScore (https://arxiv.org/abs/1904.09675)
 """

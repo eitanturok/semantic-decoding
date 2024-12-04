@@ -5,6 +5,10 @@ import argparse
 import h5py
 from pathlib import Path
 
+from tqdm import trange
+from icecream import ic, install
+install()
+
 import config
 from GPT import GPT
 from Decoder import Decoder, Hypothesis
@@ -18,8 +22,9 @@ if __name__ == "__main__":
     parser.add_argument("--subject", type = str, required = True)
     parser.add_argument("--experiment", type = str, required = True)
     parser.add_argument("--task", type = str, required = True)
+    parser.add_argument('--checkpoint_freq', type=int, default='10')
     args = parser.parse_args()
-    
+
     # determine GPT checkpoint based on experiment
     if args.experiment in ["imagined_speech"]: gpt_checkpoint = "imagined"
     else: gpt_checkpoint = "perceived"
@@ -32,7 +37,7 @@ if __name__ == "__main__":
     hf = h5py.File(os.path.join(config.DATA_TEST_DIR, "test_response", args.subject, args.experiment, args.task + ".hf5"), "r")
     resp = np.nan_to_num(hf["data"][:])
     hf.close()
-    
+
     # load gpt
     with open(os.path.join(config.DATA_LM_DIR, gpt_checkpoint, "vocab.json"), "r") as f:
         gpt_vocab = json.load(f)
@@ -53,7 +58,11 @@ if __name__ == "__main__":
     em = EncodingModel(resp, weights, encoding_model["voxels"], noise_model, device = config.EM_DEVICE)
     em.set_shrinkage(config.NM_ALPHA)
     assert args.task not in encoding_model["stories"]
-    
+
+    # create save directory
+    save_location = os.path.join(config.RESULT_DIR, args.subject, args.experiment)
+    os.makedirs(save_location, exist_ok=True)
+
     # predict word times
     word_rate = predict_word_rate(resp, word_rate_model["weights"], word_rate_model["voxels"], word_rate_model["mean_rate"])
     if args.experiment == "perceived_speech": word_times, tr_times = predict_word_times(word_rate, resp, starttime = -10)
@@ -63,7 +72,7 @@ if __name__ == "__main__":
     # decode responses
     decoder = Decoder(word_times, config.WIDTH)
     sm = StimulusModel(lanczos_mat, tr_stats, word_stats[0], device = config.SM_DEVICE)
-    for sample_index in range(len(word_times)):
+    for sample_index in trange(len(word_times)):
         trs = affected_trs(decoder.first_difference(), sample_index, lanczos_mat)
         ncontext = decoder.time_window(sample_index, config.LM_TIME, floor = 5)
         beam_nucs = lm.beam_propose(decoder.beam, ncontext)
@@ -77,8 +86,10 @@ if __name__ == "__main__":
             local_extensions = [Hypothesis(parent = hyp, extension = x) for x in zip(nuc, logprobs, extend_embs)]
             decoder.add_extensions(local_extensions, likelihoods, nextensions)
         decoder.extend(verbose = False)
-        
-    if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times += 10
-    save_location = os.path.join(config.RESULT_DIR, args.subject, args.experiment)
-    os.makedirs(save_location, exist_ok = True)
-    decoder.save(os.path.join(save_location, args.task))
+
+        # Save every iteration; maybe adjust word_times while saving
+        if sample_index % args.checkpoint_freq == 0:
+            if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times += 10
+            decoder.save(os.path.join(save_location, args.task))
+            if args.experiment in ["perceived_movie", "perceived_multispeaker"]: decoder.word_times -= 10
+
